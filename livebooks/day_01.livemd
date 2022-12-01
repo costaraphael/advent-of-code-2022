@@ -1,0 +1,92 @@
+<!-- livebook:{"persist_outputs":true} -->
+
+# Advent of Code 2022 - Day 01
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:ok
+```
+
+## Setup
+
+The input is the amount of calories each food item an elf is carrying contains. Each line represents one item, and each elf is represented by a group of lines (separated by a blank line).
+
+For instance, in the example input, there are 5 different elves.
+
+```elixir
+example_input = """
+1000
+2000
+3000
+
+4000
+
+5000
+6000
+
+7000
+8000
+9000
+
+10000
+"""
+
+input = Kino.Input.textarea("Puzzle Input", default: example_input)
+```
+
+## Part 1
+
+Find the Elf carrying the most Calories. How many total Calories is that Elf carrying?
+
+```elixir
+input
+|> Kino.Input.read()
+|> String.split("\n")
+|> Enum.chunk_by(&(&1 == ""))
+|> Enum.reject(&(&1 == [""]))
+|> Enum.map(fn calorie_counts ->
+  calorie_counts
+  |> Enum.map(&String.to_integer/1)
+  |> Enum.sum()
+end)
+|> Enum.max()
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+24000
+```
+
+## Part 2
+
+Find the top three Elves carrying the most Calories. How many Calories are those Elves carrying in total?
+
+```elixir
+input
+|> Kino.Input.read()
+|> String.split("\n")
+|> Enum.chunk_by(&(&1 == ""))
+|> Enum.reject(&(&1 == [""]))
+|> Enum.map(fn calorie_counts ->
+  calorie_counts
+  |> Enum.map(&String.to_integer/1)
+  |> Enum.sum()
+end)
+|> Enum.sort(:desc)
+|> Enum.take(3)
+|> Enum.sum()
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+45000
+```
