@@ -1,0 +1,67 @@
+# Advent of Code 2022 - Day 02
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+```
+
+## Setup
+
+```elixir
+example_input = """
+A Y
+B X
+C Z
+"""
+
+input = Kino.Input.textarea("Puzzle Input", default: example_input)
+```
+
+## Part 1
+
+```elixir
+input
+|> Kino.Input.read()
+|> String.split("\n", trim: true)
+|> Enum.map(&String.split(&1, " "))
+|> Enum.map(fn
+  # win (six points + selection)
+  ["A", "Y"] -> 6 + 2
+  ["B", "Z"] -> 6 + 3
+  ["C", "X"] -> 6 + 1
+  # draw (three points + selection)
+  ["A", "X"] -> 3 + 1
+  ["B", "Y"] -> 3 + 2
+  ["C", "Z"] -> 3 + 3
+  # lose (zero points + selection)
+  ["A", "Z"] -> 3
+  ["B", "X"] -> 1
+  ["C", "Y"] -> 2
+end)
+|> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+input
+|> Kino.Input.read()
+|> String.split("\n", trim: true)
+|> Enum.map(&String.split(&1, " "))
+|> Enum.map(fn
+  # lose (zero points + selection)
+  ["A", "X"] -> 3
+  ["B", "X"] -> 1
+  ["C", "X"] -> 2
+  # draw (three points + selection)
+  ["A", "Y"] -> 3 + 1
+  ["B", "Y"] -> 3 + 2
+  ["C", "Y"] -> 3 + 3
+  # win (six points + selection)
+  ["A", "Z"] -> 6 + 2
+  ["B", "Z"] -> 6 + 3
+  ["C", "Z"] -> 6 + 1
+end)
+|> Enum.sum()
+```

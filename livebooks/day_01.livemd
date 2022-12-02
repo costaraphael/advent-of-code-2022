@@ -1,17 +1,9 @@
-<!-- livebook:{"persist_outputs":true} -->
-
 # Advent of Code 2022 - Day 01
 
 ```elixir
 Mix.install([
   {:kino, "~> 0.7.0"}
 ])
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-:ok
 ```
 
 ## Setup
@@ -59,12 +51,6 @@ end)
 |> Enum.max()
 ```
 
-<!-- livebook:{"output":true} -->
-
-```
-24000
-```
-
 ## Part 2
 
 Find the top three Elves carrying the most Calories. How many Calories are those Elves carrying in total?
@@ -83,10 +69,4 @@ end)
 |> Enum.sort(:desc)
 |> Enum.take(3)
 |> Enum.sum()
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-45000
 ```
