@@ -1,0 +1,68 @@
+# Advent of Code 2022 - Day 03
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+```
+
+## Setup
+
+```elixir
+example_input = """
+vJrwpWtwJgWrhcsFMMfFFhFp
+jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL
+PmmdzqPrVvPwwTWBwg
+wMqvLMZHhHMvwLHjbvcjnnSBnvTQFn
+ttgJtRGJQctTZtZT
+CrZsJsPPZsGzwwsLwLmpwMDw
+"""
+
+input = Kino.Input.textarea("Puzzle Input", default: example_input)
+```
+
+## Part 1
+
+```elixir
+item_values =
+  [?a..?z, ?A..?Z]
+  |> Enum.concat()
+  |> Enum.with_index(1)
+  |> Map.new(fn {char, value} -> {<<char>>, value} end)
+
+input
+|> Kino.Input.read()
+|> String.split("\n", trim: true)
+|> Enum.flat_map(fn rustsack ->
+  {first_compartment, second_compartment} =
+    rustsack
+    |> String.graphemes()
+    |> Enum.split(div(String.length(rustsack), 2))
+
+  first_compartment
+  |> MapSet.new()
+  |> MapSet.intersection(MapSet.new(second_compartment))
+end)
+|> Enum.map(&Map.fetch!(item_values, &1))
+|> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+input
+|> Kino.Input.read()
+|> String.split("\n")
+|> Enum.chunk_every(3)
+|> Enum.flat_map(fn group ->
+  group
+  |> Enum.map(fn rustsack ->
+    rustsack
+    |> String.graphemes()
+    |> MapSet.new()
+  end)
+  |> Enum.reduce(&MapSet.intersection/2)
+end)
+|> Enum.map(&Map.fetch!(item_values, &1))
+|> Enum.sum()
+```
