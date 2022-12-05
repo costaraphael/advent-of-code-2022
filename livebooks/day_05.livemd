@@ -1,0 +1,116 @@
+# Advent of Code 2022 - Day 05
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+```
+
+## Setup
+
+```elixir
+example_input = """
+    [D]    
+[N] [C]    
+[Z] [M] [P]
+ 1   2   3 
+
+move 1 from 2 to 1
+move 3 from 1 to 3
+move 2 from 2 to 1
+move 1 from 1 to 2
+"""
+
+input = Kino.Input.textarea("Puzzle Input", default: example_input)
+```
+
+## Parsing
+
+```elixir
+{raw_crate_stacks, raw_instructions} =
+  input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+  |> Enum.split_while(&(not String.starts_with?(&1, "move")))
+```
+
+```elixir
+{raw_crate_stacks, [raw_stack_numbers]} = Enum.split(raw_crate_stacks, -1)
+
+stack_count =
+  ~r/(\d+)+/
+  |> Regex.scan(raw_stack_numbers)
+  |> Enum.count()
+
+initial_crate_stacks = List.duplicate([], stack_count)
+
+stack_row_regex =
+  1..stack_count
+  |> Enum.map(fn n -> "(   |\\[(?<value_#{n}>\\w)\\])" end)
+  |> Enum.join(" ")
+  |> Regex.compile!()
+
+crate_stacks =
+  raw_crate_stacks
+  |> Enum.map(&Regex.run(stack_row_regex, &1, capture: :all_names))
+  |> Enum.reduce(initial_crate_stacks, fn row, crate_stacks ->
+    row
+    |> Enum.zip_with(crate_stacks, fn
+      "", crate_stack -> crate_stack
+      item, crate_stack -> [item | crate_stack]
+    end)
+  end)
+  |> Enum.map(&Enum.reverse/1)
+  |> Enum.with_index()
+  |> Map.new(fn {stack, index} -> {index + 1, stack} end)
+```
+
+```elixir
+instructions =
+  raw_instructions
+  |> Enum.map(fn raw_instruction ->
+    [_, amount, from, to] = Regex.run(~r/move (\d+) from (\d) to (\d)/, raw_instruction)
+
+    %{
+      amount: String.to_integer(amount),
+      from: String.to_integer(from),
+      to: String.to_integer(to)
+    }
+  end)
+```
+
+## Part 1
+
+```elixir
+finished_crate_stacks =
+  Enum.reduce(instructions, crate_stacks, fn instruction, crate_stacks ->
+    Enum.reduce(1..instruction.amount, crate_stacks, fn _, crate_stacks ->
+      {elem, crate_stacks} =
+        Map.get_and_update!(crate_stacks, instruction.from, fn [head | tail] ->
+          {head, tail}
+        end)
+
+      Map.update!(crate_stacks, instruction.to, &[elem | &1])
+    end)
+  end)
+
+finished_crate_stacks
+|> Enum.map(fn {_, [head | _]} -> head end)
+|> Enum.join()
+```
+
+## Part 2
+
+```elixir
+finished_crate_stacks =
+  Enum.reduce(instructions, crate_stacks, fn instruction, crate_stacks ->
+    {elems, crate_stacks} =
+      Map.get_and_update!(crate_stacks, instruction.from, &Enum.split(&1, instruction.amount))
+
+    Map.update!(crate_stacks, instruction.to, &(elems ++ &1))
+  end)
+
+finished_crate_stacks
+|> Enum.map(fn {_, [head | _]} -> head end)
+|> Enum.join()
+```
