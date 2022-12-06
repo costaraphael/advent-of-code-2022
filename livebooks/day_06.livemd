@@ -1,0 +1,47 @@
+# Advent of Code 2022 - Day 06
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.8.0"}
+])
+```
+
+## Setup
+
+```elixir
+example_value = """
+mjqjpqmgbljsphdztnvjfqwrcgsmlb
+"""
+
+input = Kino.Input.textarea("Puzzle Input", default: example_value)
+```
+
+## Section
+
+```elixir
+input
+|> Kino.Input.read()
+|> String.trim()
+|> String.graphemes()
+|> Enum.chunk_every(4, 1, :discard)
+|> Enum.take_while(fn group ->
+  Enum.count(Enum.uniq(group)) != 4
+end)
+|> Enum.count()
+|> then(&(&1 + 4))
+```
+
+## Part 2
+
+```elixir
+input
+|> Kino.Input.read()
+|> String.trim()
+|> String.graphemes()
+|> Enum.chunk_every(14, 1, :discard)
+|> Enum.take_while(fn group ->
+  Enum.count(Enum.uniq(group)) != 14
+end)
+|> Enum.count()
+|> then(&(&1 + 14))
+```
