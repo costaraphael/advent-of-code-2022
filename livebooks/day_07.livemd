@@ -1,0 +1,134 @@
+# Advent of Code 2022 - Day 07
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.8.0"}
+])
+```
+
+## Setup
+
+```elixir
+example_input = """
+$ cd /
+$ ls
+dir a
+14848514 b.txt
+8504156 c.dat
+dir d
+$ cd a
+$ ls
+dir e
+29116 f
+2557 g
+62596 h.lst
+$ cd e
+$ ls
+584 i
+$ cd ..
+$ cd ..
+$ cd d
+$ ls
+4060174 j
+8033020 d.log
+5626152 d.ext
+7214296 k
+"""
+
+input = Kino.Input.textarea("Puzzle Input", default: example_input)
+```
+
+## Parsing input
+
+```elixir
+initial_state = %{
+  cwd: [],
+  fs: %{}
+}
+
+file_system =
+  input
+  |> Kino.Input.read()
+  |> String.split("$ ", trim: true)
+  |> Enum.map(fn command_and_result ->
+    [command | result] = String.split(command_and_result, "\n", trim: true)
+
+    {command, result}
+  end)
+  |> Enum.reduce(initial_state, fn
+    {"cd ..", []}, state ->
+      %{state | cwd: List.delete_at(state.cwd, -1)}
+
+    {"cd " <> dir, []}, state ->
+      %{state | cwd: state.cwd ++ [dir]}
+
+    {"ls", files}, state ->
+      cwd_fs =
+        Map.new(files, fn
+          "dir " <> dir_name ->
+            {dir_name, %{}}
+
+          file_with_size ->
+            [size, file_name] = String.split(file_with_size, " ")
+
+            {file_name, String.to_integer(size)}
+        end)
+
+      put_in(state, [:fs | state.cwd], cwd_fs)
+  end)
+  |> Map.fetch!(:fs)
+```
+
+```elixir
+defmodule DirSizeParser do
+  def get_dir_sizes(file_system) do
+    do_get_dir_sizes(file_system, [], %{})
+  end
+
+  defp do_get_dir_sizes(file_system, current_path, dir_sizes) do
+    Enum.reduce(file_system, dir_sizes, fn
+      {dir, %{} = contents}, dir_sizes ->
+        current_path = current_path ++ [dir]
+        dir_sizes = do_get_dir_sizes(contents, current_path, dir_sizes)
+
+        current_dir_size =
+          contents
+          |> Enum.map(fn
+            {dir, %{}} -> Map.fetch!(dir_sizes, current_path ++ [dir])
+            {_file, size} -> size
+          end)
+          |> Enum.sum()
+
+        Map.put(dir_sizes, current_path, current_dir_size)
+
+      {_file, _size}, dir_sizes ->
+        dir_sizes
+    end)
+  end
+end
+
+dir_sizes = DirSizeParser.get_dir_sizes(file_system)
+```
+
+## Part 1
+
+```elixir
+dir_sizes
+|> Enum.map(fn {_, size} -> size end)
+|> Enum.filter(&(&1 < 100_000))
+|> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+total_drive_space = 70_000_000
+space_required = 30_000_000
+free_space = total_drive_space - Map.fetch!(dir_sizes, ["/"])
+space_needed = space_required - free_space
+
+dir_sizes
+|> Enum.map(fn {_, size} -> size end)
+|> Enum.filter(&(&1 > space_needed))
+|> Enum.min()
+```
