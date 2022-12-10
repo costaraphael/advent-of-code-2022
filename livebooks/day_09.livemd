@@ -1,0 +1,124 @@
+# Advent of Code 2022 - Day 09
+
+```elixir
+Mix.install([
+  {:kino, github: "livebook-dev/kino"}
+])
+```
+
+## Setup
+
+```elixir
+example_input = """
+R 4
+U 4
+L 3
+D 1
+R 4
+D 1
+L 5
+R 2
+"""
+
+input = Kino.Input.textarea("Puzzle Input", default: example_input, monospace: true)
+```
+
+## Parse
+
+```elixir
+defmodule Instructions do
+  def parse(input) do
+    input
+    |> Kino.Input.read()
+    |> String.split("\n", trim: true)
+    |> Enum.map(fn line ->
+      [direction, count] = String.split(line, " ")
+
+      {direction, String.to_integer(count)}
+    end)
+    |> Enum.flat_map(fn {instruction, count} -> List.duplicate(instruction, count) end)
+  end
+
+  def execute_instruction({x, y}, "R"), do: {x, y + 1}
+  def execute_instruction({x, y}, "L"), do: {x, y - 1}
+  def execute_instruction({x, y}, "U"), do: {x - 1, y}
+  def execute_instruction({x, y}, "D"), do: {x + 1, y}
+
+  def follow_knot({tail_x, tail_y}, {head_x, head_y}) do
+    cond do
+      abs(tail_x - head_x) <= 1 and abs(tail_y - head_y) <= 1 -> {tail_x, tail_y}
+      tail_x == head_x and tail_y < head_y -> {tail_x, head_y - 1}
+      tail_x == head_x and tail_y > head_y -> {tail_x, head_y + 1}
+      tail_x < head_x and tail_y == head_y -> {head_x - 1, tail_y}
+      tail_x > head_x and tail_y == head_y -> {head_x + 1, tail_y}
+      abs(tail_x - head_x) <= 1 and tail_y < head_y -> {head_x, head_y - 1}
+      abs(tail_x - head_x) <= 1 and tail_y > head_y -> {head_x, head_y + 1}
+      tail_x < head_x and abs(tail_y - head_y) <= 1 -> {head_x - 1, head_y}
+      tail_x > head_x and abs(tail_y - head_y) <= 1 -> {head_x + 1, head_y}
+      tail_x < head_x and tail_y < head_y -> {head_x - 1, head_y - 1}
+      tail_x < head_x and tail_y > head_y -> {head_x - 1, head_y + 1}
+      tail_x > head_x and tail_y < head_y -> {head_x + 1, head_y - 1}
+      tail_x > head_x and tail_y > head_y -> {head_x + 1, head_y + 1}
+    end
+  end
+end
+
+instructions = Instructions.parse(input)
+```
+
+## Part 1
+
+```elixir
+defmodule Part1 do
+  def solve(instructions) do
+    initial_head = {0, 0}
+    initial_tail = {0, 0}
+    tail_positions = MapSet.new([initial_tail])
+
+    do_solve(instructions, initial_head, initial_tail, tail_positions)
+  end
+
+  defp do_solve([], _head, _tail, positions), do: MapSet.size(positions)
+
+  defp do_solve([instruction | instructions], head, tail, positions) do
+    new_head = Instructions.execute_instruction(head, instruction)
+    new_tail = Instructions.follow_knot(tail, new_head)
+    new_positions = MapSet.put(positions, new_tail)
+
+    do_solve(instructions, new_head, new_tail, new_positions)
+  end
+end
+
+Part1.solve(instructions)
+```
+
+## Part 2
+
+```elixir
+defmodule Part2 do
+  def solve(instructions) do
+    initial_rope = List.duplicate({0, 0}, 10)
+    tail_positions = MapSet.new([{0, 0}])
+
+    do_solve(instructions, initial_rope, tail_positions)
+  end
+
+  defp do_solve([], _rope, positions), do: MapSet.size(positions)
+
+  defp do_solve([instruction | instructions], rope, positions) do
+    [head | tail] = rope
+    new_head = Instructions.execute_instruction(head, instruction)
+    new_tail = Enum.scan(tail, new_head, &Instructions.follow_knot/2)
+    new_rope = [new_head | new_tail]
+
+    new_positions =
+      new_tail
+      |> List.last()
+      |> then(&MapSet.put(positions, &1))
+
+    do_solve(instructions, new_rope, new_positions)
+  end
+end
+
+Part2.solve(instructions)
+```

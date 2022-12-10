@@ -1,0 +1,104 @@
+# Advent of Code 2022 - Day 10
+
+```elixir
+Mix.install([
+  {:kino, github: "livebook-dev/kino"}
+])
+```
+
+## Setup
+
+```elixir
+example_input = """
+noop
+addx 3
+addx -5
+"""
+
+input = Kino.Input.textarea("Puzzle Input", default: example_input, monospace: true)
+```
+
+## Section
+
+```elixir
+defmodule Instructions do
+  def parse(input) do
+    input
+    |> Kino.Input.read()
+    |> String.split("\n", trim: true)
+    |> Enum.map(fn
+      "noop" -> :noop
+      "addx " <> n -> {:addx, String.to_integer(n)}
+    end)
+  end
+
+  def cycles_stream(instructions) do
+    initial_register = 1
+
+    register_value_at_each_cycle =
+      Stream.transform(instructions, initial_register, fn
+        :noop, register ->
+          {[register], register}
+
+        {:addx, value}, register ->
+          new_register = register + value
+          {[register, new_register], new_register}
+      end)
+
+    Stream.concat([initial_register], register_value_at_each_cycle)
+  end
+end
+
+instructions = Instructions.parse(input)
+```
+
+## Part 1
+
+```elixir
+defmodule Part1 do
+  def solve(instructions) do
+    instructions
+    |> Instructions.cycles_stream()
+    |> Stream.with_index(1)
+    |> Stream.filter(fn {_, index} -> index == 20 or rem(index - 20, 40) == 0 end)
+    |> Stream.map(fn {value, index} -> value * index end)
+    |> Enum.sum()
+  end
+end
+
+Part1.solve(instructions)
+```
+
+## Part 2
+
+````elixir
+defmodule Part2 do
+  def solve(instructions) do
+    instructions
+    |> Instructions.cycles_stream()
+    |> Stream.drop(-1)
+    |> Stream.chunk_every(40)
+    |> Enum.map_join("\n", fn line ->
+      line
+      |> Enum.map(&[&1 - 1, &1, &1 + 1])
+      |> Enum.with_index()
+      |> Enum.map_join(fn {sprite, pixel} ->
+        if pixel in sprite do
+          "#"
+        else
+          "."
+        end
+      end)
+    end)
+    |> then(fn display ->
+      Kino.Markdown.new("""
+      ```
+      #{display}
+      ```
+      """)
+    end)
+  end
+end
+
+Part2.solve(instructions)
+````

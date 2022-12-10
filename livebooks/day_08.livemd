@@ -1,0 +1,126 @@
+# Advent of Code 2022 - Day 08
+
+```elixir
+Mix.install([
+  {:kino, github: "livebook-dev/kino"}
+])
+```
+
+## Setup
+
+```elixir
+example_input = """
+30373
+25512
+65332
+33549
+35390
+"""
+
+input = Kino.Input.textarea("Puzzle Input", default: example_input, monospace: true)
+```
+
+## Section
+
+```elixir
+defmodule Forest do
+  defstruct [:map, :max_x, :max_y]
+
+  def parse(input) do
+    map =
+      input
+      |> String.split("\n", trim: true)
+      |> Enum.map(fn line ->
+        line
+        |> String.graphemes()
+        |> Enum.map(&String.to_integer/1)
+        |> List.to_tuple()
+      end)
+      |> List.to_tuple()
+
+    max_x = tuple_size(map) - 1
+    max_y = map |> elem(0) |> tuple_size() |> Kernel.-(1)
+
+    %__MODULE__{map: map, max_x: max_x, max_y: max_y}
+  end
+
+  def fetch(forest, {x, y}) do
+    row = elem(forest.map, x)
+    {:ok, elem(row, y)}
+  end
+
+  def all_positions(forest) do
+    for x <- 0..forest.max_x, y <- 0..forest.max_y, do: {x, y}
+  end
+
+  def test_paths(forest, {x, y}) do
+    [
+      for(test_y <- (y - 1)..0//-1, do: {x, test_y}),
+      for(test_y <- (y + 1)..forest.max_y//1, do: {x, test_y}),
+      for(test_x <- (x - 1)..0//-1, do: {test_x, y}),
+      for(test_x <- (x + 1)..forest.max_x//1, do: {test_x, y})
+    ]
+  end
+end
+
+forest =
+  input
+  |> Kino.Input.read()
+  |> Forest.parse()
+```
+
+## Part 1
+
+```elixir
+defmodule Part1 do
+  def solve(forest) do
+    forest
+    |> Forest.all_positions()
+    |> Enum.count(fn position ->
+      tree_height = forest[position]
+
+      forest
+      |> Forest.test_paths(position)
+      |> Enum.any?(fn test_path ->
+        test_path
+        |> Enum.map(&forest[&1])
+        |> Enum.all?(&(&1 < tree_height))
+      end)
+    end)
+  end
+end
+
+Part1.solve(forest)
+```
+
+## Part 2
+
+```elixir
+defmodule Part2 do
+  def solve(forest) do
+    forest
+    |> Forest.all_positions()
+    |> Enum.map(fn position ->
+      tree_height = forest[position]
+
+      forest
+      |> Forest.test_paths(position)
+      |> Enum.map(fn test_path ->
+        test_path
+        |> Enum.map(&forest[&1])
+        |> Enum.reduce_while(0, fn neighbor_height, count ->
+          if neighbor_height >= tree_height do
+            {:halt, count + 1}
+          else
+            {:cont, count + 1}
+          end
+        end)
+      end)
+      |> Enum.product()
+    end)
+    |> Enum.max()
+  end
+end
+
+Part2.solve(forest)
+```
