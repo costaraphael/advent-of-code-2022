@@ -1,0 +1,160 @@
+# Advent of Code 2022 - Day 12
+
+```elixir
+Mix.install([
+  {:kino, github: "livebook-dev/kino"},
+  {:priority_queue, "~> 1.0"}
+])
+```
+
+## Setup
+
+```elixir
+example_input = """
+Sabqponm
+abcryxxl
+accszExk
+acctuvwj
+abdefghi
+"""
+
+input = Kino.Input.textarea("Puzzle Input", default: example_input, monospace: true)
+```
+
+```elixir
+defmodule Graph do
+  def parse(input) do
+    values_dictionary =
+      ?a..?z
+      |> Enum.with_index()
+      |> Map.new(fn {char_code, index} -> {<<char_code>>, index} end)
+
+    initial_state = %{
+      graph: %{},
+      start: nil,
+      dest: nil
+    }
+
+    input
+    |> Kino.Input.read()
+    |> String.split("\n", trim: true)
+    |> Enum.with_index()
+    |> Enum.reduce(initial_state, fn {line, x_index}, state ->
+      line
+      |> String.graphemes()
+      |> Enum.with_index()
+      |> Enum.reduce(state, fn
+        {"S", y_index}, state ->
+          state
+          |> put_in([:graph, {x_index, y_index}], Map.fetch!(values_dictionary, "a"))
+          |> put_in([:start], {x_index, y_index})
+
+        {"E", y_index}, state ->
+          state
+          |> put_in([:graph, {x_index, y_index}], Map.fetch!(values_dictionary, "z"))
+          |> put_in([:dest], {x_index, y_index})
+
+        {char, y_index}, state ->
+          put_in(state.graph[{x_index, y_index}], Map.fetch!(values_dictionary, char))
+      end)
+    end)
+  end
+
+  def shortest_path(graph, start, dest) do
+    open_set = PriorityQueue.new() |> PriorityQueue.put(0, start)
+    came_from = Map.new()
+    score = %{start => 0}
+
+    shortest_path(graph, dest, open_set, came_from, score)
+  end
+
+  defp shortest_path(graph, dest, open_set, came_from, score) do
+    case PriorityQueue.pop(open_set) do
+      {{nil, nil}, _} ->
+        :error
+
+      {{current_score, current}, open_set} ->
+        if current == dest do
+          {:ok, reconstruct_path(came_from, current, [])}
+        else
+          {open_set, came_from, score} =
+            graph
+            |> neighbors(current)
+            |> Enum.reduce(
+              {open_set, came_from, score},
+              fn neighbor, {open_set, came_from, score} ->
+                tentative_score = current_score + 1
+
+                if tentative_score < Map.get(score, neighbor, :inf) do
+                  open_set = PriorityQueue.put(open_set, tentative_score, neighbor)
+                  came_from = Map.put(came_from, neighbor, current)
+                  score = Map.put(score, neighbor, tentative_score)
+
+                  {open_set, came_from, score}
+                else
+                  {open_set, came_from, score}
+                end
+              end
+            )
+
+          shortest_path(graph, dest, open_set, came_from, score)
+        end
+    end
+  end
+
+  defp reconstruct_path(came_from, current, path) do
+    case Map.fetch(came_from, current) do
+      {:ok, new_current} -> reconstruct_path(came_from, new_current, [current | path])
+      :error -> [current | path]
+    end
+  end
+
+  defp neighbors(graph, {x, y} = vertex) do
+    potential_neighbors = [{x - 1, y}, {x + 1, y}, {x, y - 1}, {x, y + 1}]
+
+    Enum.filter(potential_neighbors, fn neighbor ->
+      case Map.fetch(graph, neighbor) do
+        :error -> false
+        {:ok, value} -> value <= Map.fetch!(graph, vertex) + 1
+      end
+    end)
+  end
+end
+
+%{graph: graph, start: start, dest: dest} = Graph.parse(input)
+```
+
+## Part 1
+
+```elixir
+defmodule Part1 do
+  def solve(graph, start, dest) do
+    {:ok, shortest_path} = Graph.shortest_path(graph, start, dest)
+
+    Enum.count(shortest_path) - 1
+  end
+end
+
+Part1.solve(graph, start, dest)
+```
+
+## Part 2
+
+```elixir
+defmodule Part2 do
+  def solve(graph, dest) do
+    graph
+    |> Enum.filter(fn {_, value} -> value == 0 end)
+    |> Enum.map(fn {coord, _} -> coord end)
+    |> Enum.map(&Graph.shortest_path(graph, &1, dest))
+    |> Enum.flat_map(fn
+      :error -> []
+      {:ok, path} -> [Enum.count(path)]
+    end)
+    |> Enum.min()
+    |> then(&(&1 - 1))
+  end
+end
+
+Part2.solve(graph, dest)
+```

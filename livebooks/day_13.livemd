@@ -1,0 +1,116 @@
+# Advent of Code 2022 - Day 13
+
+```elixir
+Mix.install([
+  {:kino, github: "livebook-dev/kino"}
+])
+```
+
+## Setup
+
+```elixir
+example_input = """
+[1,1,3,1,1]
+[1,1,5,1,1]
+
+[[1],[2,3,4]]
+[[1],4]
+
+[9]
+[[8,7,6]]
+
+[[4,4],4,4]
+[[4,4],4,4,4]
+
+[7,7,7,7]
+[7,7,7]
+
+[]
+[3]
+
+[[[]]]
+[[]]
+
+[1,[2,[3,[4,[5,6,7]]]],8,9]
+[1,[2,[3,[4,[5,6,0]]]],8,9]
+"""
+
+input = Kino.Input.textarea("Puzzle Input", default: example_input, monospace: true)
+```
+
+```elixir
+defmodule Packet do
+  def parse(input) do
+    input
+    |> Kino.Input.read()
+    |> String.split("\n", trim: true)
+    |> Enum.map(fn line ->
+      {packet, _} = Code.eval_string(line)
+
+      packet
+    end)
+  end
+
+  def compare(left, right) when is_number(left) and is_number(right) do
+    cond do
+      left > right -> :gt
+      left < right -> :lt
+      true -> :eq
+    end
+  end
+
+  def compare([], []), do: :eq
+  def compare([], [_ | _]), do: :lt
+  def compare([_ | _], []), do: :gt
+
+  def compare([l | ls], [r | rs]) do
+    case compare(l, r) do
+      :lt -> :lt
+      :gt -> :gt
+      :eq -> compare(ls, rs)
+    end
+  end
+
+  def compare(left, right) when is_list(right), do: compare([left], right)
+  def compare(left, right) when is_list(left), do: compare(left, [right])
+end
+
+packets = Packet.parse(input)
+```
+
+## Part 1
+
+```elixir
+defmodule Part1 do
+  def solve(packets) do
+    packets
+    |> Enum.chunk_every(2)
+    |> Enum.with_index(1)
+    |> Enum.filter(fn {[left, right], _index} -> Packet.compare(left, right) in [:lt, :eq] end)
+    |> Enum.map(fn {_packets, index} -> index end)
+    |> Enum.sum()
+  end
+end
+
+Part1.solve(packets)
+```
+
+## Part 2
+
+```elixir
+defmodule Part2 do
+  def solve(packets) do
+    divider_packets = [[[2]], [[6]]]
+
+    packets
+    |> Enum.concat(divider_packets)
+    |> Enum.sort(Packet)
+    |> Enum.with_index(1)
+    |> Enum.filter(fn {packet, _index} -> packet in divider_packets end)
+    |> Enum.map(fn {_packet, index} -> index end)
+    |> Enum.product()
+  end
+end
+
+Part2.solve(packets)
+```
