@@ -1,0 +1,173 @@
+# Advent of Code 2022 - Day 15
+
+```elixir
+Mix.install([
+  {:kino, github: "livebook-dev/kino"}
+])
+```
+
+## Setup
+
+```elixir
+example_input = """
+Sensor at x=2, y=18: closest beacon is at x=-2, y=15
+Sensor at x=9, y=16: closest beacon is at x=10, y=16
+Sensor at x=13, y=2: closest beacon is at x=15, y=3
+Sensor at x=12, y=14: closest beacon is at x=10, y=16
+Sensor at x=10, y=20: closest beacon is at x=10, y=16
+Sensor at x=14, y=17: closest beacon is at x=10, y=16
+Sensor at x=8, y=7: closest beacon is at x=2, y=10
+Sensor at x=2, y=0: closest beacon is at x=2, y=10
+Sensor at x=0, y=11: closest beacon is at x=2, y=10
+Sensor at x=20, y=14: closest beacon is at x=25, y=17
+Sensor at x=17, y=20: closest beacon is at x=21, y=22
+Sensor at x=16, y=7: closest beacon is at x=15, y=3
+Sensor at x=14, y=3: closest beacon is at x=15, y=3
+Sensor at x=20, y=1: closest beacon is at x=15, y=3
+"""
+
+input = Kino.Input.textarea("Puzzle Input", default: example_input, monospace: true)
+```
+
+```elixir
+defmodule Sensor do
+  defmodule Beacon do
+    defstruct [:x, :y]
+  end
+
+  defstruct [:x, :y, :closest_beacon]
+
+  def parse(line) do
+    regex = ~r/Sensor at x=(-?\d+), y=(-?\d+): closest beacon is at x=(-?\d+), y=(-?\d+)/
+
+    [_, x, y, beacon_x, beacon_y] = Regex.run(regex, line)
+
+    %Sensor{
+      x: String.to_integer(x),
+      y: String.to_integer(y),
+      closest_beacon: %Beacon{
+        x: String.to_integer(beacon_x),
+        y: String.to_integer(beacon_y)
+      }
+    }
+  end
+
+  def total_scanned_ranges_at_row(sensors, row) do
+    sensors
+    |> Enum.map(&scanned_range_at_row(&1, row))
+    |> Enum.filter(&(&1.first < &1.last))
+    |> merge_ranges()
+  end
+
+  defp scanned_range_at_row(sensor, row) do
+    distance_to_row = abs(sensor.y - row)
+    spare_horizontal_distance = manhattan_distance(sensor) - distance_to_row
+
+    (sensor.x - spare_horizontal_distance)..(sensor.x + spare_horizontal_distance)//1
+  end
+
+  defp manhattan_distance(sensor) do
+    abs(sensor.x - sensor.closest_beacon.x) + abs(sensor.y - sensor.closest_beacon.y)
+  end
+
+  defp merge_ranges(ranges) do
+    merged_ranges = Enum.reduce(ranges, [], &add_range_to_list/2)
+
+    if is_fully_merged?(merged_ranges) do
+      merged_ranges
+    else
+      merge_ranges(merged_ranges)
+    end
+  end
+
+  # finds the first intersecting range in the list and merges the range with it
+  # if there are no intersecting ranges, the range is added to the end of the list
+  defp add_range_to_list(range, []), do: [range]
+
+  defp add_range_to_list(range, [range_to_test | ranges]) do
+    if range_intersects?(range, range_to_test) do
+      [min(range.first, range_to_test.first)..max(range.last, range_to_test.last) | ranges]
+    else
+      [range_to_test | add_range_to_list(range, ranges)]
+    end
+  end
+
+  defp range_intersects?(range1, range2) do
+    range1.last >= range2.first and range1.first <= range2.last
+  end
+
+  defp is_fully_merged?(ranges) do
+    Enum.all?(ranges, fn range ->
+      ranges
+      |> List.delete(range)
+      |> Enum.all?(&(not range_intersects?(range, &1)))
+    end)
+  end
+end
+
+sensors =
+  input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+  |> Enum.map(&Sensor.parse/1)
+```
+
+## Part 1
+
+```elixir
+row_to_check = Kino.Input.number("Row to check", default: 10)
+```
+
+```elixir
+defmodule Part1 do
+  def solve(sensors, row_to_check) do
+    beacons_at_row =
+      sensors
+      |> Enum.map(& &1.closest_beacon)
+      |> Enum.filter(&(&1.y == row_to_check))
+      |> Enum.uniq()
+      |> Enum.count()
+
+    sensors
+    |> Sensor.total_scanned_ranges_at_row(row_to_check)
+    |> Enum.map(&Enum.count/1)
+    |> Enum.sum()
+    |> then(&(&1 - beacons_at_row))
+  end
+end
+
+row_to_check = Kino.Input.read(row_to_check)
+
+Part1.solve(sensors, row_to_check)
+```
+
+## Part 2
+
+```elixir
+search_space = Kino.Input.number("Search space", default: 20)
+```
+
+```elixir
+defmodule Part2 do
+  def solve(sensors, search_space) do
+    # Since the ranges are merged, there should be only one set of ranges with
+    # more than one range, as there should be only one row with a single gap in
+    # the search space.
+
+    # This assumes that there are no scanned ranges outside the X search space
+    # at any given row. If this were to be false, we would just have to add an
+    # extra check to only consider the ranges that intersect with the X search
+    # space on each row.
+    {row, [range1, _range2]} =
+      0..search_space
+      |> Enum.map(&{&1, Sensor.total_scanned_ranges_at_row(sensors, &1)})
+      |> Enum.find(&match?({_, [_, _]}, &1))
+
+    (range1.last + 1) * 4_000_000 + row
+  end
+end
+
+search_space = Kino.Input.read(search_space)
+
+Part2.solve(sensors, search_space)
+```

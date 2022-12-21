@@ -1,0 +1,182 @@
+# Advent of Code 2022 - Day 11
+
+```elixir
+Mix.install([
+  {:kino, github: "livebook-dev/kino"}
+])
+```
+
+## Setup
+
+```elixir
+example_input = """
+Monkey 0:
+  Starting items: 79, 98
+  Operation: new = old * 19
+  Test: divisible by 23
+    If true: throw to monkey 2
+    If false: throw to monkey 3
+
+Monkey 1:
+  Starting items: 54, 65, 75, 74
+  Operation: new = old + 6
+  Test: divisible by 19
+    If true: throw to monkey 2
+    If false: throw to monkey 0
+
+Monkey 2:
+  Starting items: 79, 60, 97
+  Operation: new = old * old
+  Test: divisible by 13
+    If true: throw to monkey 1
+    If false: throw to monkey 3
+
+Monkey 3:
+  Starting items: 74
+  Operation: new = old + 3
+  Test: divisible by 17
+    If true: throw to monkey 0
+    If false: throw to monkey 1
+"""
+
+input = Kino.Input.textarea("Puzzle Input", default: example_input, monospace: true)
+```
+
+```elixir
+defmodule Monkeys do
+  def parse(input) do
+    input
+    |> Kino.Input.read()
+    |> String.split("\n\n")
+    |> Enum.map(fn monkey ->
+      monkey
+      |> String.split("\n", trim: true)
+      |> Enum.reduce(%{}, fn
+        "Monkey " <> number, monkey ->
+          number = number |> String.trim(":") |> String.to_integer()
+
+          Map.put(monkey, :number, number)
+
+        "  Starting items: " <> items, monkey ->
+          items =
+            items
+            |> String.split(", ", trim: true)
+            |> Enum.map(&String.to_integer/1)
+
+          Map.put(monkey, :items, items)
+
+        "  Operation: " <> expr, monkey ->
+          operation = Code.string_to_quoted!(expr)
+
+          Map.put(monkey, :operation, operation)
+
+        "  Test: divisible by " <> dividend, monkey ->
+          dividend = String.to_integer(dividend)
+
+          Map.put(monkey, :test_dividend, dividend)
+
+        "    If true: throw to monkey " <> dst_mokey, monkey ->
+          dst_mokey = String.to_integer(dst_mokey)
+
+          Map.put(monkey, :dst_monkey_if_true, dst_mokey)
+
+        "    If false: throw to monkey " <> dst_mokey, monkey ->
+          dst_mokey = String.to_integer(dst_mokey)
+
+          Map.put(monkey, :dst_monkey_if_false, dst_mokey)
+      end)
+    end)
+    |> Map.new(&{&1.number, &1})
+  end
+
+  def run_rounds(monkeys, rounds, item_inspection) do
+    Enum.reduce(1..rounds, monkeys, fn _, monkeys ->
+      Enum.reduce(0..(map_size(monkeys) - 1), monkeys, fn monkey_index, monkeys ->
+        monkey = Map.fetch!(monkeys, monkey_index)
+
+        Enum.reduce(monkey.items, monkeys, fn item_worry_level, monkeys ->
+          item_inspection.(monkeys, monkey, item_worry_level)
+        end)
+      end)
+    end)
+  end
+end
+
+monkeys = Monkeys.parse(input)
+```
+
+## Section
+
+```elixir
+defmodule Part1 do
+  def solve(monkeys) do
+    monkeys
+    |> Monkeys.run_rounds(20, &inspect_and_throw_item/3)
+    |> Map.values()
+    |> Enum.map(& &1.inspections_count)
+    |> Enum.sort(:desc)
+    |> Enum.take(2)
+    |> Enum.product()
+  end
+
+  defp inspect_and_throw_item(monkeys, monkey, worry_level) do
+    {new_worry_level, _} = Code.eval_quoted(monkey.operation, old: worry_level)
+    new_worry_level = div(new_worry_level, 3)
+
+    dst_monkey =
+      if rem(new_worry_level, monkey.test_dividend) == 0 do
+        monkey.dst_monkey_if_true
+      else
+        monkey.dst_monkey_if_false
+      end
+
+    monkeys
+    |> update_in([monkey.number, :items], &tl/1)
+    |> update_in([monkey.number, Access.key(:inspections_count, 0)], &(&1 + 1))
+    |> update_in([dst_monkey, :items], &(&1 ++ [new_worry_level]))
+  end
+end
+
+Part1.solve(monkeys)
+```
+
+## Part 2
+
+```elixir
+defmodule Part2 do
+  def solve(monkeys) do
+    common_divider =
+      monkeys
+      |> Map.values()
+      |> Enum.map(& &1.test_dividend)
+      |> Enum.product()
+
+    monkeys
+    |> Monkeys.run_rounds(10_000, &inspect_and_throw_item(&1, &2, &3, common_divider))
+    |> Map.values()
+    |> Enum.map(& &1.inspections_count)
+    |> Enum.sort(:desc)
+    |> Enum.take(2)
+    |> Enum.product()
+  end
+
+  defp inspect_and_throw_item(monkeys, monkey, worry_level, common_divider) do
+    {new_worry_level, _} = Code.eval_quoted(monkey.operation, old: worry_level)
+    new_worry_level = rem(new_worry_level, common_divider)
+
+    dst_monkey =
+      if rem(new_worry_level, monkey.test_dividend) == 0 do
+        monkey.dst_monkey_if_true
+      else
+        monkey.dst_monkey_if_false
+      end
+
+    monkeys
+    |> update_in([monkey.number, :items], &tl/1)
+    |> update_in([monkey.number, Access.key(:inspections_count, 0)], &(&1 + 1))
+    |> update_in([dst_monkey, :items], &(&1 ++ [new_worry_level]))
+  end
+end
+
+Part2.solve(monkeys)
+```

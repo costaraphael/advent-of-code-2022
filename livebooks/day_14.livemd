@@ -1,0 +1,131 @@
+# Advent of Code 2022 - Day 14
+
+```elixir
+Mix.install([
+  {:kino, github: "livebook-dev/kino"}
+])
+```
+
+## Setup
+
+```elixir
+example_input = """
+498,4 -> 498,6 -> 496,6
+503,4 -> 502,4 -> 502,9 -> 494,9
+"""
+
+input = Kino.Input.textarea("Puzzle Input", default: example_input, monospace: true)
+```
+
+```elixir
+rock_walls =
+  input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+  |> Enum.flat_map(fn line ->
+    line
+    |> String.split(" -> ", trim: true)
+    |> Enum.map(fn coordinates ->
+      [x, y] = String.split(coordinates, ",")
+
+      {String.to_integer(x), String.to_integer(y)}
+    end)
+    |> Enum.chunk_every(2, 1, :discard)
+    |> Enum.flat_map(fn
+      [{x, y1}, {x, y2}] -> Enum.map(y1..y2, &{x, &1})
+      [{x1, y}, {x2, y}] -> Enum.map(x1..x2, &{&1, y})
+    end)
+  end)
+  |> MapSet.new()
+
+lowest_y =
+  rock_walls
+  |> Enum.map(fn {_x, y} -> y end)
+  |> Enum.max()
+
+cave_map = %{rock_walls: rock_walls, lowest_y: lowest_y}
+```
+
+## Section
+
+```elixir
+defmodule Part1 do
+  @sand_source {500, 0}
+
+  def solve(cave_map) do
+    initial_resting_sand = MapSet.new()
+
+    cave_map
+    |> fill_cave(initial_resting_sand)
+    |> Enum.count()
+  end
+
+  defp fill_cave(cave_map, resting_sand) do
+    case simulate_falling_sand(cave_map, resting_sand, @sand_source) do
+      {:ok, new_resting_sand} -> fill_cave(cave_map, new_resting_sand)
+      :error -> resting_sand
+    end
+  end
+
+  defp simulate_falling_sand(cave_map, resting_sand, sand_coordinates) do
+    sand_coordinates
+    |> next_coordinates()
+    |> Enum.find(&(&1 not in cave_map.rock_walls and &1 not in resting_sand))
+    |> then(fn
+      nil -> {:ok, MapSet.put(resting_sand, sand_coordinates)}
+      {_, new_y} when new_y >= cave_map.lowest_y -> :error
+      {_, _} = new_coordinates -> simulate_falling_sand(cave_map, resting_sand, new_coordinates)
+    end)
+  end
+
+  defp next_coordinates({x, y}), do: [{x, y + 1}, {x - 1, y + 1}, {x + 1, y + 1}]
+end
+
+Part1.solve(cave_map)
+```
+
+## Part 2
+
+```elixir
+defmodule Part2 do
+  @sand_source {500, 0}
+
+  def solve(cave_map) do
+    initial_resting_sand = MapSet.new()
+
+    cave_map
+    |> fill_cave(initial_resting_sand)
+    |> Enum.count()
+  end
+
+  defp fill_cave(cave_map, resting_sand) do
+    if @sand_source in resting_sand do
+      resting_sand
+    else
+      new_resting_sand = simulate_falling_sand(cave_map, resting_sand, @sand_source)
+
+      fill_cave(cave_map, new_resting_sand)
+    end
+  end
+
+  defp simulate_falling_sand(cave_map, resting_sand, sand_coordinates) do
+    sand_coordinates
+    |> next_coordinates()
+    |> Enum.find(&(&1 not in cave_map.rock_walls and &1 not in resting_sand))
+    |> then(fn
+      nil ->
+        MapSet.put(resting_sand, sand_coordinates)
+
+      {_, new_y} when new_y == cave_map.lowest_y + 2 ->
+        MapSet.put(resting_sand, sand_coordinates)
+
+      {_, _} = new_coordinates ->
+        simulate_falling_sand(cave_map, resting_sand, new_coordinates)
+    end)
+  end
+
+  defp next_coordinates({x, y}), do: [{x, y + 1}, {x - 1, y + 1}, {x + 1, y + 1}]
+end
+
+Part2.solve(cave_map)
+```
